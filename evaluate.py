@@ -2,7 +2,7 @@ import torch
 from generator import Generator
 from mappingmlp import MappingMLP
 import math
-from train import gen_images
+from train import gen_images, save_generated_images
 
 import matplotlib.pyplot as plt
 import torchvision.utils as vutils
@@ -21,12 +21,21 @@ def load_model(path, dataset, res, device):
     return ema,best, generator, mapping_net
 
 def main():
+    dataset_name = "CelebA"
+    generated_images = []
+    to_test = 5000
+    batch_size=32
     res = 64
     num_blocks = int(math.log2(res))-1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ema,best, generator, mapping_net = load_model("data","CelebA", res, device)
-    imgs, w = gen_images(32, generator, num_blocks, 0.9, 512, mapping_net, device)
-    imgs = (imgs + 1) / 2
+    ema,best, generator, mapping_net = load_model("data",dataset_name, res, device)
+    for i in range(0, to_test, batch_size):
+        imgs, w = gen_images(batch_size, generator, num_blocks, 0.9, 512, mapping_net, device)
+        generated_images.append(imgs)
+    generated_images = torch.cat(generated_images, dim=0)
+    save_generated_images(generated_images,"evaluation","CelebA",res)
+
+    return
     grid = vutils.make_grid(imgs, nrow=8)
     plt.figure(figsize=(8,8))
     plt.axis("off")

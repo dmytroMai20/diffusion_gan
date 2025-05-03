@@ -378,7 +378,7 @@ def save_generated_images(images, epoch,dataset,res, folder='data'):
         images = (images + 1) / 2  # Assuming input is in [-1, 1]
 
     # Create directory for this epoch
-    epoch_dir = os.path.join(folder,f'stylegan_{dataset}_{str(res)}', f'epoch_{str(epoch)}')
+    epoch_dir = os.path.join(folder,f'diff_stylegan_{dataset}_{str(res)}', f'epoch_{str(epoch)}')
     os.makedirs(epoch_dir, exist_ok=True)
 
     # Save each image
