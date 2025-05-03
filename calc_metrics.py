@@ -34,8 +34,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         return None
 """
 @torch.no_grad()
-def save_real_images(real_dataloader):
-    to_save = 500
+def save_real_images(real_dataloader, to_save = 5000):
     os.makedirs("real", exist_ok=True)
     imgs_saved = 0
     for batch in tqdm(real_dataloader, desc= "Saving real images"):

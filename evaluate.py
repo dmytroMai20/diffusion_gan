@@ -3,10 +3,12 @@ from generator import Generator
 from mappingmlp import MappingMLP
 import math
 from train import gen_images, save_generated_images
-
+from calc_metrics import save_real_images
 import matplotlib.pyplot as plt
 import torchvision.utils as vutils
 from scipy.stats import truncnorm
+from dataset import get_loader
+from torch_fidelity import calculate_metrics
 
 def load_model(path, dataset, res, device):
     checkpoint = torch.load(f"{path}/stylegan2_{dataset}_{res}.pt", map_location=device)
@@ -29,12 +31,37 @@ def main():
     num_blocks = int(math.log2(res))-1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ema,best, generator, mapping_net = load_model("data",dataset_name, res, device)
+
+    real_loader = get_loader(batch_size,res,dataset_name)
+    save_real_images(real_loader)
+
     for i in range(0, to_test, batch_size):
         imgs, w = gen_images(batch_size, generator, num_blocks, 0.9, 512, mapping_net, device)
         generated_images.append(imgs)
     generated_images = torch.cat(generated_images, dim=0)
     save_generated_images(generated_images,"evaluation","CelebA",res)
 
+    prc_dict = calculate_metrics(
+        input1=f'./real', 
+        input2=f'./data/diff_stylegan_{dataset_name}_{str(res)}/epoch_evaluation', 
+        cuda=True, 
+        isc=False, 
+        fid=True, 
+        kid=True, 
+        prc=True, 
+        verbose=False
+    )
+    inception_dict = calculate_metrics(
+        input1=f'./data/diff_stylegan_{dataset_name}_{str(res)}/epoch_evaluation', 
+        cuda=True, 
+        isc=True, 
+        fid=False, 
+        kid=False, 
+        prc=False, 
+        verbose=False
+    )
+    prc_dict['inception_score_mean'] = inception_dict['inception_score_mean']
+    print(prc_dict)
     return
     grid = vutils.make_grid(imgs, nrow=8)
     plt.figure(figsize=(8,8))
