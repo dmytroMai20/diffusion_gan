@@ -154,7 +154,8 @@ def train():
             generated_images = []
             num_batches = test_samples // batch_size 
             for _ in range(num_batches):
-                fake_ims, _ = gen_images(batch_size, ema.ema_model, num_blocks, mixing_prob, dim_w, mapping_net, device)
+                labels_fake = torch.randint(0, num_classes, (batch_size,), device=device)
+                fake_ims, _ = gen_images(batch_size, ema.ema_model, num_blocks, mixing_prob, dim_w, mapping_net,labels_fake, device)
                 generated_images.append(fake_ims)
             generated_images = torch.cat(generated_images, dim=0)
             fid_score = compute_fid(fid_real_imgs, generated_images,device)
