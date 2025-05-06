@@ -6,7 +6,7 @@ from util import Smooth, EqualizedLinear
 from typing import Tuple, Optional
 
 class Generator(nn.Module):
-    def __init__(self, log_res, dims_w, num_features=32, max_features = 512):
+    def __init__(self,num_classes, log_res, dims_w, num_features=32, max_features = 512):
         super().__init__()
         #log_res = math.log2(res)
         self.args = [log_res, dims_w, num_features, max_features]
@@ -21,7 +21,7 @@ class Generator(nn.Module):
         blocks = [GeneratorBlock(dims_w, features[i-1], features[i]) for i in range(1, self.num_blocks)]
         self.blocks = nn.ModuleList(blocks)
         self.up_sample = UpSample()
-        print()
+        
 
     def forward(self, w, input_noise):
         batch_size = w.shape[1]

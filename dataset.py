@@ -48,7 +48,7 @@ def get_loader(batch_s,res, data="FashionMNIST"):
         ])
 
         # Download and load the dataset
-        dataset = STL10(root="./data", split="unlabeled", download=True, transform=transform)
+        dataset = STL10(root="./data", split="train", download=True, transform=transform)
         # Create a DataLoader
         dataloader = DataLoader(dataset, batch_size=batch_s, drop_last=True, shuffle=True, num_workers=1, pin_memory=True)
         return dataloader
