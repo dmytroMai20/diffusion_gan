@@ -34,12 +34,15 @@ def main():
 
     real_loader = get_loader(batch_size,res,dataset_name)
     save_real_images(real_loader)
+    del real_loader
 
     for i in range(0, to_test, batch_size):
         imgs, w = gen_images(batch_size, generator, num_blocks, 0.9, 512, mapping_net, device)
         generated_images.append(imgs)
+        del imgs, w
     generated_images = torch.cat(generated_images, dim=0)
     save_generated_images(generated_images,"evaluation","CelebA",res)
+    del generated_images
 
     prc_dict = calculate_metrics(
         input1=f'./real', 

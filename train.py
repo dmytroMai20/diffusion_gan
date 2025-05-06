@@ -43,10 +43,10 @@ def train():
     t_update_interval = 4
     diffusion_p = 0 # initial value of diffusion (bounded [0,1] adjusting T_max)
     img_res = 64
-
+    num_classes = 10 
     generator = Generator(int(math.log2(img_res)),dim_w).to(device)
-    discriminator = Discriminator(int(math.log2(img_res))).to(device)
-    mapping_net = MappingMLP(dim_w, mappingnet_layers).to(device)
+    discriminator = Discriminator(num_classes,int(math.log2(img_res))).to(device)
+    mapping_net = MappingMLP(dim_w, mappingnet_layers, num_classes).to(device)
     ema = EMA(generator)
     diffusion = Diffusion()
     diffusion.p = diffusion_p
@@ -89,18 +89,19 @@ def train():
     times_per_epoch = []
     for epoch in range(epochs):
         start_time = time.time()
-        for batch_idx, (real_images, _) in enumerate(tqdm(data_loader)):
+        for batch_idx, (real_images, labels) in enumerate(tqdm(data_loader)):
             d_optim.zero_grad()
             real_images = real_images.to(device)
             real_images, t_real = diffusion(real_images)
             #d_optim.zero_grad() 
-            fake_images, _ = gen_images(batch_size, generator, num_blocks, mixing_prob, dim_w, mapping_net, device)
+            labels_fake = torch.randint(0, num_classes, (batch_size,), device=device)
+            fake_images, _ = gen_images(batch_size, generator, num_blocks, mixing_prob, dim_w, mapping_net,labels_fake, device)
             fake_images, t_fake = diffusion(fake_images)
-            fake_output = discriminator(fake_images.detach(), t_fake)
+            fake_output = discriminator(fake_images.detach(), t_fake, labels_fake)
             # requires.grad if reaches gradient penalty interval (set to 4)
             if (batch_idx+1) % grad_pen_interval == 0:
                 real_images.requires_grad_()
-            real_output = discriminator(real_images, t_real)
+            real_output = discriminator(real_images, t_real, labels)
 
             real_loss, fake_loss = disc_loss(real_output, fake_output)
             d_loss = real_loss + fake_loss
@@ -117,9 +118,10 @@ def train():
             g_optim.zero_grad()
             mlp_optim.zero_grad()
 
-            fake_images, w = gen_images(batch_size, generator, num_blocks, mixing_prob, dim_w, mapping_net, device)
+            labels_fake = torch.randint(0, num_classes, (batch_size,), device=device)
+            fake_images, w = gen_images(batch_size, generator, num_blocks, mixing_prob, dim_w, mapping_net,labels_fake, device)
             fake_images, t_fake = diffusion(fake_images)
-            fake_output = discriminator(fake_images, t_fake)
+            fake_output = discriminator(fake_images, t_fake, labels_fake)
 
             g_loss = gen_loss(fake_output)
 
@@ -260,14 +262,14 @@ def train():
     # save FID, KID and times at each epoch to compare to DDPM
     save_metrics("data",cum_times, fid_scores, kid_means, kid_stds, gpu_mb_alloc, gpu_mb_reserved, time_per_kimg,g_losses,d_losses, batch_size, dataset_name, str(im_size))
     
-def get_w(batch_size: int, style_mixing_prob, num_blocks, w_dims, mapping_network,device):
+def get_w(batch_size: int, style_mixing_prob, num_blocks, w_dims, mapping_network, labels, device):
         if torch.rand(()).item() < style_mixing_prob:
             cross_over_point = int(torch.rand(()).item() * num_blocks)
             z2 = torch.randn(batch_size, w_dims).to(device)
             z1 = torch.randn(batch_size, w_dims).to(device)
 
-            w1 = mapping_network(z1)
-            w2 = mapping_network(z2)
+            w1 = mapping_network(z1, labels)
+            w2 = mapping_network(z2, labels)
 
             w1 = w1[None, :, :].expand(cross_over_point, -1, -1)
             w2 = w2[None, :, :].expand(num_blocks - cross_over_point, -1, -1)
@@ -294,8 +296,8 @@ def get_noise(batch_size: int, num_blocks: int, device):
             resolution *= 2
         return noise
 
-def gen_images(batch_size, generator, num_blocks, style_mixing_prob, w_dims, mlp, device):
-     w = get_w(batch_size, style_mixing_prob, num_blocks, w_dims, mlp, device)
+def gen_images(batch_size, generator, num_blocks, style_mixing_prob, w_dims, mlp,labels, device):
+     w = get_w(batch_size, style_mixing_prob, num_blocks, w_dims, mlp,labels, device)
      noise = get_noise(batch_size, num_blocks,device)
      imgs = generator(w, noise)
      return imgs, w

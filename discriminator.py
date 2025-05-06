@@ -7,7 +7,7 @@ from util import SinusoidalPositionEmbeddings
 import numpy as np
 
 class Discriminator(nn.Module): 
-    def __init__(self, log_resolution: int, n_features: int = 64, max_features: int = 512, embedding_dim=64):
+    def __init__(self, num_classes, log_resolution: int, n_features: int = 64, max_features: int = 512, embedding_dim=64):
         super().__init__()
 
         # Layer to convert RGB image to a feature map with `n_features` number of features.
@@ -37,7 +37,7 @@ class Discriminator(nn.Module):
         self.act = nn.LeakyReLU(0.2, True)
         self.prefinal = EqualizedLinear(2 * 2 * final_features, final_features)
         self.final = EqualizedLinear(final_features, 1)
-
+        self.class_embed = nn.Embedding(num_classes, final_features)
         self.time_mlp = nn.Sequential(
             SinusoidalPositionEmbeddings(embedding_dim),
             nn.Linear(embedding_dim, final_features),
@@ -45,7 +45,7 @@ class Discriminator(nn.Module):
             nn.Linear(final_features, final_features),
         )
 
-    def forward(self, x: torch.Tensor, t):
+    def forward(self, x: torch.Tensor, t, labels):
         # Try to normalize the image (this is totally optional, but sped up the early training a little)
         #x = x - 0.5 # this could be detrimental
         # Convert from RGB
@@ -61,11 +61,14 @@ class Discriminator(nn.Module):
         x = x.reshape(x.shape[0], -1)
         # Return the classification score
         x = self.prefinal(x)
-        x = self.act(x)
-        x = self.final(x)
+        features = self.act(x)
+        out = self.final(features)
         t_embedding = self.time_mlp(t)
-        x = (x * t_embedding).sum(dim=1, keepdim=True) * (1 / np.sqrt(self.final_features))
-        return x
+        class_embedding = self.class_embed(labels)
+        #x = (x * t_embedding).sum(dim=1, keepdim=True) * (1 / np.sqrt(self.final_features))
+        proj = (features * t_embedding).sum(dim=1, keepdim=True) + (features * class_embedding).sum(dim=1, keepdim=True)
+        return proj + out
+        #return x
 
 class DiscriminatorBlock(nn.Module):
     def __init__(self, in_features, out_features):
