@@ -51,7 +51,7 @@ def train():
     diffusion = Diffusion()
     diffusion.p = diffusion_p
     d_target = 0.4
-    update_kimg = 500 # number of kimgs for p to change by one
+    update_kimg = 100 # number of kimgs for p to change by one
 
     num_blocks = int(math.log2(img_res))-1
     disc_loss = DiscriminatorLoss().to(device)
@@ -90,6 +90,7 @@ def train():
     for epoch in range(epochs):
         start_time = time.time()
         for batch_idx, (real_images, labels) in enumerate(tqdm(data_loader)):
+            labels= labels.to(device)
             d_optim.zero_grad()
             real_images = real_images.to(device)
             real_images, t_real = diffusion(real_images)
@@ -146,7 +147,7 @@ def train():
                 if (batch_idx+1) % t_update_interval == 0:
                     adjust = np.sign(calculate_r_d(real_output).item() - d_target) * (batch_size * t_update_interval) / (update_kimg * 1000)
                     diffusion.p = (diffusion.p + adjust).clip(min=0., max=1.)
-                    diffusion.update_T
+                    diffusion.update_T()
         times_per_epoch.append(time.time()-start_time)
         ###
         torch.cuda.empty_cache()
@@ -280,7 +281,7 @@ def get_w(batch_size: int, style_mixing_prob, num_blocks, w_dims, mapping_networ
 
             z = torch.randn(batch_size, w_dims).to(device)
 
-            w = mapping_network(z)
+            w = mapping_network(z, labels)
 
             return w[None, :, :].expand(num_blocks, -1, -1)
 
